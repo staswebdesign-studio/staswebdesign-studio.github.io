@@ -11,6 +11,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  actions: write
 
 concurrency:
   group: publish
@@ -40,10 +41,13 @@ jobs:
           for b in $(git ls-remote --heads origin 'photos/*' | awk '{print $2}' | sed 's#refs/heads/##'); do
             [ -d "${b#photos/}" ] && git push origin --delete "$b" || true
           done
+      - name: Опубликовать (публиковать сайт GitHub разрешает только из main)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run publish.yml --ref main --repo "$GITHUB_REPOSITORY"
 
   deploy:
-    needs: merge
-    if: always() && (needs.merge.result == 'success' || needs.merge.result == 'skipped')
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
