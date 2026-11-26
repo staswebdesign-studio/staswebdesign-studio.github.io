@@ -1,0 +1,60 @@
+# Публикация демо. Агент кладёт демо в ветку claude/demo-<папка>; здесь она вливается в main,
+# сайт публикуется, а временные ветки (сама и photos/<папка> с фото из 2ГИС) удаляются.
+name: Публикация демо
+
+on:
+  push:
+    branches: ["main", "claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: startsWith(github.ref, 'refs/heads/claude/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Влить ветку в main и убрать временное
+        run: |
+          set -e
+          git config user.name "Публикация демо"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --no-ff --no-edit -m "Публикация: $GITHUB_REF_NAME" "origin/$GITHUB_REF_NAME"
+          # необработанные фото из 2ГИС в опубликованный сайт не попадают
+          if ls -d */_2gis >/dev/null 2>&1; then git rm -rq --cached */_2gis && rm -rf */_2gis && git commit -qm "Убраны необработанные фото"; fi
+          git push origin HEAD:main
+          git push origin --delete "$GITHUB_REF_NAME" || true
+          # ветки с фото тех демо, что уже опубликованы
+          for b in $(git ls-remote --heads origin 'photos/*' | awk '{print $2}' | sed 's#refs/heads/##'); do
+            [ -d "${b#photos/}" ] && git push origin --delete "$b" || true
+          done
+
+  deploy:
+    needs: merge
+    if: always() && (needs.merge.result == 'success' || needs.merge.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deploy
+        uses: actions/deploy-pages@v4
