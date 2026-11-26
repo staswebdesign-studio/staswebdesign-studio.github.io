@@ -34,7 +34,9 @@ jobs:
           git fetch origin "$GITHUB_REF_NAME"
           git merge --no-ff --no-edit -m "Публикация: $GITHUB_REF_NAME" "origin/$GITHUB_REF_NAME"
           # необработанные фото из 2ГИС в опубликованный сайт не попадают
-          if ls -d */_2gis >/dev/null 2>&1; then git rm -rq --cached */_2gis && rm -rf */_2gis && git commit -qm "Убраны необработанные фото"; fi
+          for d in _2gis _vk _data; do
+            if ls -d */$d >/dev/null 2>&1; then git rm -rq --cached */$d && rm -rf */$d && git commit -qm "Убраны необработанные материалы ($d)"; fi
+          done
           git push origin HEAD:main
           git push origin --delete "$GITHUB_REF_NAME" || true
           # ветки с фото тех демо, что уже опубликованы
