@@ -46,19 +46,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run publish.yml --ref main --repo "$GITHUB_REPOSITORY"
 
-  deploy:
+  build:
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: .
+
+  deploy:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: main
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: .
       - id: deploy
         uses: actions/deploy-pages@v5
